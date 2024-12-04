@@ -97,7 +97,7 @@ const Home = () => {
           <motion.div
             initial={{ scale: 0.95 }}
             animate={{ scale: 1 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.2 }}  
           >
             <textarea
               id="code"
