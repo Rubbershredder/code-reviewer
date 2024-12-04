@@ -43,7 +43,7 @@ def analyze_code_with_ollama(code):
         
         # Ollama API request payload
         payload = {
-            "model": "qwen2.5-coder:latest",  # You can change this to your preferred model
+            "model": "llama3.2:latest",  # You can change this to your preferred model
             "prompt": prompt,
             "stream": False,
             "options": {
