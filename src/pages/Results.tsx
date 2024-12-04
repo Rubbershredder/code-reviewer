@@ -1,85 +1,82 @@
-import { useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Light as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { atomOneDark } from 'react-syntax-highlighter/dist/esm/styles/hljs';
-
-interface ResultSection {
-  title: string;
-  content: string;
-}
-
-const ResultSection: React.FC<ResultSection> = ({ title, content }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.5 }}
-    className="mb-6"
-  >
-    <h2 className="text-xl font-semibold mb-2 text-primary-800">{title}</h2>
-    <div className="bg-white p-4 rounded-md shadow-md">
-      <p className="text-gray-700">{content}</p>
-    </div>
-  </motion.div>
-);
+import { useLocation } from "react-router-dom";
+import { motion } from "framer-motion";
+import { Light as SyntaxHighlighter } from "react-syntax-highlighter";
+import { atomOneDark } from "react-syntax-highlighter/dist/esm/styles/hljs";
 
 const Results = () => {
   const location = useLocation();
-  const { code, apiResult } = location.state as { 
-    code: string, 
-    apiResult: { 
-      reviewResults: Record<string, string>,
-      fileName: string,
-      codeLength: number 
-    } 
+  const { code, apiResult } = location.state as {
+    code: string;
+    apiResult: {
+      reviewResults: Record<string, string>;
+      fileName: string;
+      codeLength: number;
+    };
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <motion.h1
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="text-4xl font-bold mb-8 text-center text-primary-800"
-      >
-        Code Review Results
-      </motion.h1>
-      
-      <div className="mb-6 bg-gray-100 p-4 rounded-md">
-        <h2 className="text-lg font-semibold mb-2">File Details</h2>
-        <p>File Name: {apiResult.fileName}</p>
-        <p>Code Length: {apiResult.codeLength} characters</p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-100">
+      {/* Header */}
+      <header className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-6">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <h1 className="text-4xl font-bold">Code Review Results</h1>
+        </div>
+      </header>
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.2, duration: 0.5 }}
-        className="mb-8"
-      >
-        <h2 className="text-2xl font-semibold mb-4 text-primary-700">Submitted Code</h2>
-        <SyntaxHighlighter
-          language="python"
-          style={atomOneDark}
-          className="rounded-md shadow-md"
-          showLineNumbers
-        >
-          {code}
-        </SyntaxHighlighter>
-      </motion.div>
+      {/* Content */}
+      <main className="max-w-5xl mx-auto px-4 py-8">
+        {/* File Details */}
+        <section className="mb-6 bg-white p-6 rounded-lg shadow-md">
+          <h2 className="text-2xl font-semibold text-gray-700 mb-4">File Details</h2>
+          <div className="grid grid-cols-2 gap-4 text-gray-600">
+            <p>
+              <strong>File Name:</strong> {apiResult.fileName}
+            </p>
+            <p>
+              <strong>Code Length:</strong> {apiResult.codeLength} characters
+            </p>
+          </div>
+        </section>
 
-      {Object.entries(apiResult.reviewResults).map(([key, value], index) => (
-        <motion.div
-          key={key}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 * index, duration: 0.5 }}
-        >
-          <ResultSection
-            title={key.charAt(0).toUpperCase() + key.slice(1)}
-            content={value}
-          />
-        </motion.div>
-      ))}
+        {/* Submitted Code */}
+        <section className="mb-8 bg-gray-800 text-white p-6 rounded-lg shadow-md">
+          <h2 className="text-2xl font-semibold mb-4">Submitted Code</h2>
+          <SyntaxHighlighter
+            language="python"
+            style={atomOneDark}
+            className="rounded-lg"
+            showLineNumbers
+          >
+            {code}
+          </SyntaxHighlighter>
+        </section>
+
+        {/* Review Results */}
+        <section className="mb-10">
+          <h2 className="text-2xl font-semibold text-gray-700 mb-6">Review Results</h2>
+          <div className="grid gap-6">
+            {Object.entries(apiResult.reviewResults).map(([key, value], index) => (
+              <motion.div
+                key={key}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 * index, duration: 0.5 }}
+                className="bg-white p-4 rounded-lg shadow-md"
+              >
+                <h3 className="text-lg font-medium text-blue-600">{key}</h3>
+                <p className="text-gray-700 mt-2">{value}</p>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-gray-800 text-white py-4">
+        <div className="text-center text-sm">
+          &copy; {new Date().getFullYear()} Code Review Platform. All rights reserved.
+        </div>
+      </footer>
     </div>
   );
 };

@@ -23,6 +23,7 @@ def analyze_code_with_ollama(code):
     try:
         # Comprehensive code review prompt
         prompt = f"""Perform a detailed code review with the following sections:
+        0. I want to have headings for each and every section,
         1. Summary: Provide a brief overview of the code's purpose
         2. Bugs: Identify any potential bugs or logical errors
         3. Code Style: Evaluate adherence to language-specific style guidelines
