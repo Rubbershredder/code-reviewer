@@ -24,18 +24,13 @@ const ResultSection: React.FC<ResultSection> = ({ title, content }) => (
 
 const Results = () => {
   const location = useLocation();
-  const { code } = location.state as { code: string };
-
-  const analysisResults = {
-    summary: "This is a sample Python code that defines a function to calculate the factorial of a number.",
-    bugs: "No major bugs detected.",
-    codeStyle: "The code follows PEP 8 style guidelines.",
-    codeStructure: "The code has a clear and simple structure with a single function definition.",
-    performance: "The current implementation is recursive, which may cause stack overflow for large numbers. Consider using an iterative approach for better performance.",
-    security: "No security issues detected in this simple function.",
-    scalability: "The function is self-contained and can be easily reused in larger projects.",
-    readability: "The code is easy to read and understand. Consider adding a docstring to explain the function's purpose and parameters.",
-    conclusion: "Overall, this is a good implementation of a factorial function. Consider the performance suggestion for handling larger numbers."
+  const { code, apiResult } = location.state as { 
+    code: string, 
+    apiResult: { 
+      reviewResults: Record<string, string>,
+      fileName: string,
+      codeLength: number 
+    } 
   };
 
   return (
@@ -48,6 +43,13 @@ const Results = () => {
       >
         Code Review Results
       </motion.h1>
+      
+      <div className="mb-6 bg-gray-100 p-4 rounded-md">
+        <h2 className="text-lg font-semibold mb-2">File Details</h2>
+        <p>File Name: {apiResult.fileName}</p>
+        <p>Code Length: {apiResult.codeLength} characters</p>
+      </div>
+
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -64,7 +66,8 @@ const Results = () => {
           {code}
         </SyntaxHighlighter>
       </motion.div>
-      {Object.entries(analysisResults).map(([key, value], index) => (
+
+      {Object.entries(apiResult.reviewResults).map(([key, value], index) => (
         <motion.div
           key={key}
           initial={{ opacity: 0, y: 20 }}
@@ -82,4 +85,3 @@ const Results = () => {
 };
 
 export default Results;
-

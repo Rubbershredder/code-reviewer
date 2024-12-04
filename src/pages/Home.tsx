@@ -5,23 +5,66 @@ import { motion } from 'framer-motion';
 const Home = () => {
   const [code, setCode] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate('/results', { state: { code } });
+    setIsLoading(true);
+    setError(null);
+
+    // Create JSON payload
+    const jsonPayload = {
+      code,
+      fileName: file ? file.name : 'Untitled',
+    };
+
+    try {
+      // Send to API 
+      const response = await fetch('http://localhost:5000/api/review', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(jsonPayload),
+      });
+
+      // Handle API response
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Network response was not ok');
+      }
+
+      const result = await response.json();
+
+      // Navigate to results page with API response
+      navigate('/results', { 
+        state: { 
+          code: code,
+          apiResult: result 
+        } 
+      });
+
+    } catch (error) {
+      console.error('Error processing code:', error);
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred');
+      setIsLoading(false);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      setFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+      setFile(selectedFile);
+
       const reader = new FileReader();
       reader.onload = (event) => {
-        if (event.target) {
+        if (event.target?.result) {
           setCode(event.target.result as string);
         }
       };
-      reader.readAsText(e.target.files[0]);
+      reader.readAsText(selectedFile);
     }
   };
 
@@ -35,6 +78,11 @@ const Home = () => {
       >
         Smart. Fast. Flawless - AI powered code reviews at your fingertips.
       </motion.h1>
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+          {error}
+        </div>
+      )}
       <motion.form
         onSubmit={handleSubmit}
         className="space-y-6 mt-8"
@@ -81,18 +129,19 @@ const Home = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             type="submit"
-            className="px-8 py-3 bg-gradient-to-r from-blue-100 to-purple-100 text-primary-800 rounded-md hover:from-blue-200 hover:to-purple-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-all duration-300 text-base font-sans border border-primary-400 shadow-lg mt-8"
+            disabled={isLoading}
+            className={`px-8 py-3 rounded-md transition-all duration-300 text-base font-sans border shadow-lg mt-8 ${
+              isLoading 
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                : 'bg-gradient-to-r from-blue-100 to-purple-100 text-primary-800 hover:from-blue-200 hover:to-purple-200'
+            }`}
           >
-            <span className="mr-2 text-primary-800"></span>
-            Review Code
-            <span className="ml-2 text-primary-800"></span>
+            {isLoading ? 'Reviewing...' : 'Review Code'}
           </motion.button>
         </div>
       </motion.form>
     </div>
   );
-  
 };
 
 export default Home;
-
