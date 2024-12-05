@@ -74,7 +74,10 @@ const Results = () => {
       {/* Footer */}
       <footer className="bg-gray-800 text-white py-4">
         <div className="text-center text-sm">
-          &copy; {new Date().getFullYear()} Code Review Platform. All rights reserved.
+          {/* &copy; {new Date().getFullYear()} Code Review Platform. All rights reserved. */}
+          <br></br>
+          <center>&lt;Rubbershredder • Krispy • ins4ne/&gt;</center>
+          <br></br>
         </div>
       </footer>
     </div>
