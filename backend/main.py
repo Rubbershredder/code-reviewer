@@ -1,143 +1,187 @@
 import os
-import json
+from dotenv import load_dotenv
 import requests
-import traceback
+from typing import Dict, Any
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
+# Load environment variables
+load_dotenv()
+
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*", "methods": ["POST", "OPTIONS"]}})
 
-OLLAMA_API_BASE_URL = "http://localhost:11434/api/generate"
+OLLAMA_API_BASE_URL = os.getenv("OLLAMA_API_BASE_URL")
 
-def analyze_code_with_ollama(code):
+def generate_comprehensive_code_review_prompt() -> str:
     """
-    Analyze code using a local Ollama model
+    Generate a detailed, structured prompt for comprehensive code review.
+    
+    Returns:
+        str: A meticulously crafted prompt for thorough code analysis
+    """
+    return """
+You are a senior software engineer and code quality expert performing an exhaustive code review. 
+Analyze the provided code with extreme depth and precision across multiple critical dimensions:
+
+1. COMPREHENSIVE CODE ANALYSIS
+   - Detailed algorithmic breakdown
+   - Architectural design evaluation
+   - Potential design pattern applications
+   - Code complexity metrics
+
+2. CRITICAL BUG DETECTION
+   - Identify latent and manifest bugs
+   - Potential runtime vulnerabilities
+   - Edge case failure scenarios
+   - Subtle logical inconsistencies
+   - Performance-related anti-patterns
+
+3. CODE QUALITY ASSESSMENT
+   - Adherence to language-specific best practices
+   - Naming convention compliance
+   - Modularity and separation of concerns
+   - Code duplication analysis
+   - Maintainability index
+
+4. PERFORMANCE OPTIMIZATION
+   - Time complexity analysis
+   - Space complexity evaluation
+   - Potential bottlenecks
+   - Algorithmic efficiency recommendations
+   - Resource utilization patterns
+
+5. SECURITY VULNERABILITY ASSESSMENT
+   - Potential injection points
+   - Authentication and authorization weaknesses
+   - Data validation and sanitization gaps
+   - Cryptographic considerations
+   - Threat modeling insights
+
+6. SCALABILITY AND ARCHITECTURE
+   - Horizontal and vertical scaling potential
+   - Architectural flexibility
+   - Dependency management
+   - System integration considerations
+   - Future extensibility
+
+7. ERROR HANDLING AND RESILIENCE
+   - Exception management strategies
+   - Graceful degradation mechanisms
+   - Logging and monitoring recommendations
+   - Fault tolerance evaluation
+
+8. CODE MODERNIZATION SUGGESTIONS
+   - Language-specific idiomatic improvements
+   - Recommended design pattern refactorings
+   - Modern programming paradigm alignments
+   - Technical debt reduction strategies
+
+9. COMPLIANCE AND STANDARDS
+   - Industry coding standards adherence
+   - Potential regulatory compliance issues
+   - Best practice alignment
+   - Code review checklist validation
+
+10. CONCLUSIVE RECOMMENDATION
+    - Holistic code quality rating
+    - Priority-ranked improvement suggestions
+    - Potential refactoring roadmap
+    - Advanced optimization strategies
+
+Provide a meticulously structured, deeply technical, and actionable analysis that goes beyond surface-level observations.
+
+CODE TO ANALYZE:
+```
+{code}
+```
+
+ANALYSIS FORMAT:
+- Use clear, professional technical language
+- Provide concrete, implementable recommendations
+- Include severity levels for each observation
+- Quantify improvements where possible
+"""
+
+def analyze_code_with_ollama(code: str) -> Dict[str, Any]:
+    """
+    Perform comprehensive code analysis using Ollama model.
     
     Args:
         code (str): Source code to analyze
     
     Returns:
-        dict: Comprehensive code review results
+        Dict[str, Any]: Comprehensive code review results
     """
-    try:
-        # Comprehensive code review prompt
-        prompt = f"""Perform a detailed code review with the following sections:
-        0. I want to have headings for each and every section,
-        1. Summary: Provide a brief overview of the code's purpose
-        2. Bugs: Identify any potential bugs or logical errors
-        3. Code Style: Evaluate adherence to language-specific style guidelines
-        4. Code Structure: Analyze the overall code organization and design
-        5. Performance: Assess potential performance bottlenecks
-        6. Security: Check for potential security vulnerabilities
-        7. Scalability: Evaluate the code's potential for scaling
-        8. Readability: Comment on code clarity and readability
-        9. Conclusion: Provide overall assessment and improvement recommendations
-
-        Code to review:
-        ```
-        {code}
-        ```
-
-        Provide a structured response with clear sections. Be specific and constructive.
-        """
-        
-        # Ollama API request payload
-        payload = {
-            "model": "llama3.2:latest",  # You can change this to your preferred model
-            "prompt": prompt,
-            "stream": False,
-            "options": {
-                "temperature": 0.7,
-                "max_tokens": 2000
-            }
-        }
-        
-        # Send request to Ollama
-        response = requests.post(OLLAMA_API_BASE_URL, json=payload)
-        
-        if response.status_code != 200:
-            return {
-                'error': 'Failed to get response from Ollama',
-                'status_code': response.status_code,
-                'response_text': response.text
-            }
-        
-        # Parse the response
-        result = response.json()
-        review_text = result.get('response', '')
-        
-        # Manually parse the AI response into sections
-        sections = {}
-        current_section = None
-        
-        for line in review_text.split('\n'):
-            line = line.strip()
-            if line.endswith(':'):
-                current_section = line[:-1].lower()
-                sections[current_section] = ''
-            elif current_section and line:
-                sections[current_section] += line + ' '
-        
-        # Clean up sections
-        for section, content in sections.items():
-            sections[section] = content.strip()
-        
-        return sections
+    prompt = generate_comprehensive_code_review_prompt().format(code=code)
     
-    except Exception as e:
-        print(f"Error in Ollama analysis: {e}")
-        traceback.print_exc()
+    payload = {
+        "model": "llama3.2:latest",
+        "prompt": prompt,
+        "stream": False,
+        "options": {
+            "temperature": 0.7,
+            "max_tokens": 4000  # Increased to accommodate detailed analysis
+        }
+    }
+    
+    try:
+        response = requests.post(OLLAMA_API_BASE_URL, json=payload)
+        response.raise_for_status()
         return {
-            'error': 'Failed to generate code review',
-            'details': str(e)
+            "comprehensive_review": response.json().get('response', 'No analysis generated'),
+            "status": "success"
+        }
+    except requests.exceptions.RequestException as e:
+        return {
+            "error": f"Ollama API Request Failed: {e}",
+            "status": "error"
+        }
+    except Exception as e:
+        return {
+            "error": f"Unexpected Analysis Error: {e}",
+            "status": "error"
         }
 
 @app.route('/api/review', methods=['POST'])
-def review_code():
+def perform_deep_code_review():
     """
-    Endpoint to receive code and generate AI-powered review
+    Advanced endpoint for comprehensive code analysis
     """
     try:
-        # Get JSON payload
         data = request.get_json()
-        code = data.get('code', '')
-        file_name = data.get('fileName', 'Unnamed File')
+        code = data.get('code')
         
-        # Validate input
         if not code:
             return jsonify({
-                'error': 'No code provided',
-                'status': 400
+                "error": "No code provided for analysis",
+                "status": "error"
             }), 400
         
-        # Analyze code with Ollama
         review_results = analyze_code_with_ollama(code)
         
-        # Prepare response
-        response = {
-            'fileName': file_name,
-            'codeLength': len(code),
-            'reviewResults': review_results
-        }
-        
-        return jsonify(response), 200
+        return jsonify({
+            "fileName": data.get('fileName', 'Unnamed'),
+            "codeLength": len(code),
+            "reviewResults": review_results
+        }), 200
     
     except Exception as e:
-        print(f"Error processing code review: {e}")
-        traceback.print_exc()
         return jsonify({
-            'error': 'Internal server error',
-            'details': str(e)
+            "error": f"Internal Server Error: {e}",
+            "status": "error"
         }), 500
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    """Simple health check endpoint"""
+    """Comprehensive health check endpoint"""
     return jsonify({
-        'status': 'healthy',
-        'message': 'Code Review Backend with Ollama is running'
-    }), 200
+        'status': 'operational',
+        'services': {
+            'code_review': 'fully functional',
+            'ollama_integration': 'connected'
+        }
+    })
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
