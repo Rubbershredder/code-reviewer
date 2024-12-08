@@ -6,7 +6,9 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 # Load environment variables
-load_dotenv()
+
+env_path = os.path.join(os.path.dirname(__file__), '../.env')
+env_config = dotenv_values(env_path)
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*", "methods": ["POST", "OPTIONS"]}})
