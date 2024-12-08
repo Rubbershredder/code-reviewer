@@ -19,6 +19,29 @@ jobs:
       with:
         python-version: '3.9'
     
+    - name: Install Ollama
+      run: |
+        # Download and install Ollama
+        curl -fsSL https://ollama.com/install.sh | sh
+        
+        # Ensure Ollama service is enabled and started
+        sudo systemctl enable ollama
+        sudo systemctl start ollama
+        
+        # Wait for Ollama to be fully operational
+        for i in {1..30}; do
+          if curl -s http://localhost:11434 > /dev/null; then
+            echo "Ollama is running"
+            break
+          fi
+          sleep 2
+        done
+    
+    - name: Pull Llama3.2 Model
+      run: |
+        # Pull specific Llama3.2 model
+        ollama pull llama3.2:latest
+    
     - name: Create .env File
       run: |
         echo "OLLAMA_API_BASE_URL=http://localhost:11434/api/generate" > .env
@@ -28,17 +51,6 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install requests flask flask-cors python-dotenv
-    
-    - name: Install Ollama
-      run: |
-        curl https://ollama.ai/install.sh | sh
-        ollama pull llama3.2
-    
-    - name: Start Ollama Server
-      run: ollama serve &
-      
-    - name: Wait for Ollama Server
-      run: sleep 10  # Give time for Ollama server to start
     
     - name: Set up Backend Server
       run: |
