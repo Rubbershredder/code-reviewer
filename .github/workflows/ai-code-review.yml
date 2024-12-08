@@ -45,7 +45,7 @@ jobs:
     - name: Create .env File
       run: |
         echo "OLLAMA_API_BASE_URL=http://localhost:11434/api/generate" > .env
-        echo "REVIEW_CATEGORIES=1. COMPREHENSIVE CODE ANALYSIS, 2. CRITICAL BUG DETECTION, 3. CODE QUALITY ASSESSMENT, 4. PERFORMANCE OPTIMIZATION, 5. SECURITY VULNERABILITY ASSESSMENT, 6. SCALABILITY AND ARCHITECTURE, 7. ERROR HANDLING AND RESILIENCE, 8. CODE MODERNIZATION SUGGESTIONS, 9. COMPLIANCE AND STANDARDS, 10. CONCLUSIVE RECOMMENDATION" >> .env
+        echo "REVIEW_CATEGORIES=1. Code Structure, 2. Performance, 3. Security, 4. Best Practices, 5. Potential Improvements" >> .env
     
     - name: Install Python Dependencies
       run: |
@@ -55,6 +55,7 @@ jobs:
     - name: Set up Backend Server
       run: |
         cd backend
+        pip install -r requirements.txt
         python main.py &
         sleep 10  # Give time for the server to start
     
@@ -82,7 +83,9 @@ jobs:
             return any(path.endswith(ext) for ext in source_extensions)
 
         def sanitize_markdown(text):
-            # Escape special Markdown characters
+            # Robust markdown sanitization
+            if not text:
+                return "No review content available."
             return text.replace('|', '\\|').replace('*', '\\*').replace('_', '\\_')
 
         def review_code(file_path):
@@ -121,10 +124,10 @@ jobs:
                 filename = file_review.get('fileName', 'Unknown File')
                 markdown += f"### File: `{filename}`\n\n"
                 
+                # Safely access nested review results
                 review_results = file_review.get('reviewResults', {})
-                comprehensive_review = review_results.get('comprehensive_review', '')
+                comprehensive_review = review_results.get('comprehensive_review', 'No detailed review available.')
                 
-                # Organize review by predefined categories
                 markdown += "#### Comprehensive Review\n\n"
                 markdown += f"```markdown\n{sanitize_markdown(comprehensive_review)}\n```\n\n"
             
