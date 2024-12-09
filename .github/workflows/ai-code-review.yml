@@ -71,7 +71,7 @@ jobs:
         from dotenv import load_dotenv
 
         # Load environment variables
-        load_dotenv()
+        # load_dotenv()
 
         def is_source_file(path):
             source_extensions = [
