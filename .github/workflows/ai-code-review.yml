@@ -44,7 +44,7 @@ jobs:
     
     - name: Create .env File
       run: |
-        echo "OLLAMA_API_BASE_URL=http://localhost:11434/api/generate" > .env
+        echo "REVIEW_API_URL=http://localhost:11434/api/generate" > .env
         echo "REVIEW_CATEGORIES=1. Code Structure, 2. Performance, 3. Security, 4. Best Practices, 5. Potential Improvements" >> .env
     
     - name: Install Python Dependencies
@@ -61,19 +61,36 @@ jobs:
     
     - name: Run Comprehensive Code Review
       run: |
-        mkdir -p code-reviews
-        python3 - << EOF
+        python3 << 'EOF'
+        #!/usr/bin/env python3
         import os
         import requests
         import json
         import re
         import traceback
+        from typing import List, Dict, Optional
         from dotenv import load_dotenv
 
         # Load environment variables
-        # load_dotenv()
+        load_dotenv()
 
-        def is_source_file(path):
+        # Exclusion list for directories and files
+        EXCLUDE_DIRS = [
+            '.git', 'node_modules', 'dist', 'build', 
+            'venv', '.venv', 'env', '.env', 
+            'coverage', 'logs', '__pycache__'
+        ]
+
+        def is_source_file(path: str) -> bool:
+            """
+            Check if the given path is a source code file based on its extension.
+            
+            Args:
+                path (str): File path to check
+            
+            Returns:
+                bool: True if the file is a source code file, False otherwise
+            """
             source_extensions = [
                 '.py', '.js', '.jsx', '.ts', '.tsx', 
                 '.java', '.cpp', '.c', '.rb', '.go', 
@@ -82,19 +99,37 @@ jobs:
             ]
             return any(path.endswith(ext) for ext in source_extensions)
 
-        def sanitize_markdown(text):
-            # Robust markdown sanitization
+        def sanitize_markdown(text: Optional[str]) -> str:
+            """
+            Sanitize text for markdown rendering.
+            
+            Args:
+                text (str): Text to sanitize
+            
+            Returns:
+                str: Sanitized markdown text
+            """
             if not text:
                 return "No review content available."
             return text.replace('|', '\\|').replace('*', '\\*').replace('_', '\\_')
 
-        def review_code(file_path):
+        def review_code(file_path: str, review_url: str) -> Optional[Dict]:
+            """
+            Send code to review API and retrieve review results.
+            
+            Args:
+                file_path (str): Path to the source code file
+                review_url (str): URL of the review API
+            
+            Returns:
+                Optional[Dict]: Review results or None if review fails
+            """
             try:
                 with open(file_path, 'r', encoding='utf-8') as f:
                     code = f.read()
                 
                 response = requests.post(
-                    'http://localhost:5000/api/review', 
+                    review_url, 
                     json={'code': code, 'fileName': os.path.basename(file_path)},
                     headers={'Content-Type': 'application/json'},
                     timeout=300  # Increased timeout for detailed review
@@ -109,7 +144,16 @@ jobs:
                 print(f"Exception reviewing {file_path}: {traceback.format_exc()}")
                 return None
 
-        def generate_markdown_report(reviews):
+        def generate_markdown_report(reviews: List[Dict]) -> str:
+            """
+            Generate a comprehensive markdown report from code reviews.
+            
+            Args:
+                reviews (List[Dict]): List of code review results
+            
+            Returns:
+                str: Markdown formatted report
+            """
             review_categories = os.getenv('REVIEW_CATEGORIES', '').split(', ')
             
             markdown = "# 🤖 Comprehensive AI Code Review Report\n\n"
@@ -133,45 +177,64 @@ jobs:
             
             return markdown
 
-        # Exclusion list for directories and files
-        EXCLUDE_DIRS = [
-            '.git', 'node_modules', 'dist', 'build', 
-            'venv', '.venv', 'env', '.env', 
-            'coverage', 'logs', '__pycache__'
-        ]
-
-        def should_exclude(path):
+        def should_exclude(path: str) -> bool:
+            """
+            Check if a path should be excluded from review.
+            
+            Args:
+                path (str): File path to check
+            
+            Returns:
+                bool: True if path should be excluded, False otherwise
+            """
             return any(exclude in path.split(os.path.sep) for exclude in EXCLUDE_DIRS)
 
-        # Recursively find and review source code files
-        reviews = []
-        for root, _, files in os.walk('.'):
-            for file in files:
-                full_path = os.path.join(root, file)
-                
-                # Skip excluded directories and non-source files
-                if should_exclude(full_path) or not is_source_file(full_path):
-                    continue
-                
-                print(f"Reviewing: {full_path}")
-                review = review_code(full_path)
-                if review:
-                    reviews.append(review)
-
-        # Generate comprehensive markdown report
-        if reviews:
-            report = generate_markdown_report(reviews)
+        def main():
+            """
+            Main function to run code review process.
+            """
+            # Configuration (from environment variables)
+            review_api_url = os.getenv('REVIEW_API_URL', 'http://localhost:11434/api/generate')
+            output_dir = 'code-reviews'
             
-            # Save markdown report
-            with open('code-reviews/comprehensive_review.md', 'w', encoding='utf-8') as f:
-                f.write(report)
-        
-        if not reviews:
-            print("No source code files found or reviewed.")
+            # Create output directory if it doesn't exist
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # Recursively find and review source code files
+            reviews = []
+            for root, _, files in os.walk('.'):
+                for file in files:
+                    full_path = os.path.join(root, file)
+                    
+                    # Skip excluded directories and non-source files
+                    if should_exclude(full_path) or not is_source_file(full_path):
+                        continue
+                    
+                    print(f"Reviewing: {full_path}")
+                    review = review_code(full_path, review_api_url)
+                    if review:
+                        reviews.append(review)
+            
+            # Generate comprehensive markdown report
+            if reviews:
+                report = generate_markdown_report(reviews)
+                
+                # Save markdown report
+                report_path = os.path.join(output_dir, 'comprehensive_review.md')
+                with open(report_path, 'w', encoding='utf-8') as f:
+                    f.write(report)
+                
+                print(f"Code review report generated: {report_path}")
+            else:
+                print("No source code files found or reviewed.")
+
+        if __name__ == "__main__":
+            main()
         EOF
     
     - name: Commit Review Results
       run: |
+        mkdir -p code-reviews
         git config user.name github-actions
         git config user.email github-actions@github.com
         git add code-reviews/comprehensive_review.md || true
