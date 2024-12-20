@@ -19,24 +19,15 @@ jobs:
       with:
         python-version: '3.9'
     
-    - name: Create .env File
-      run: |
-        echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" > .env
-        echo "GEMINI_API_URL=https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateText" >> .env
-        echo "REVIEW_CATEGORIES=1. COMPREHENSIVE CODE ANALYSIS, 2. CRITICAL BUG DETECTION, 3. CODE QUALITY ASSESSMENT, 4. PERFORMANCE OPTIMIZATION, 5. SECURITY VULNERABILITY ASSESSMENT, 6. SCALABILITY AND ARCHITECTURE, 7. ERROR HANDLING AND RESILIENCE, 8. CODE MODERNIZATION SUGGESTIONS, 9. COMPLIANCE AND STANDARDS, 10. CONCLUSIVE RECOMMENDATION" >> .env
-    
     - name: Install Python Dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install requests flask flask-cors python-dotenv google-cloud-aiplatform
-    
-    - name: Set up Backend Server
-      run: |
-        cd backend
-        python main.py &
-        sleep 10  # Give time for the server to start
-    
+        pip install requests
+
     - name: Run Comprehensive Code Review
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        GEMINI_API_URL: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateText'
       run: |
         mkdir -p code-reviews
         python3 - << EOF
@@ -45,10 +36,6 @@ jobs:
         import json
         import re
         import traceback
-        from dotenv import load_dotenv
-
-        # Load environment variables
-        load_dotenv()
 
         def is_source_file(path):
             source_extensions = [
@@ -60,6 +47,8 @@ jobs:
             return any(path.endswith(ext) for ext in source_extensions)
 
         def sanitize_markdown(text):
+            if not text:
+                return ""
             return text.replace('|', '\\|').replace('*', '\\*').replace('_', '\\_')
 
         def review_code(file_path):
@@ -69,7 +58,7 @@ jobs:
                 
                 headers = {
                     'Content-Type': 'application/json',
-                    'Authorization': f'Bearer {os.getenv("GEMINI_API_KEY")}'
+                    'Authorization': f'Bearer {os.environ["GEMINI_API_KEY"]}'
                 }
                 
                 prompt = f"""
@@ -80,9 +69,9 @@ jobs:
                 4. Performance optimizations
                 5. Architecture and design
                 6. Maintainability
-                
+
                 Code to review ({os.path.basename(file_path)}):
-                
+
                 {code}
                 """
                 
@@ -101,20 +90,25 @@ jobs:
                 }
                 
                 response = requests.post(
-                    os.getenv('GEMINI_API_URL'),
+                    os.environ["GEMINI_API_URL"],
                     headers=headers,
                     json=payload,
                     timeout=300
                 )
                 
                 if response.status_code == 200:
-                    review_text = response.json()['candidates'][0]['content']['parts'][0]['text']
-                    return {
-                        'fileName': os.path.basename(file_path),
-                        'reviewResults': {
-                            'comprehensive_review': review_text
+                    response_json = response.json()
+                    if 'candidates' in response_json and response_json['candidates']:
+                        review_text = response_json['candidates'][0]['content']['parts'][0]['text']
+                        return {
+                            'fileName': os.path.basename(file_path),
+                            'reviewResults': {
+                                'comprehensive_review': review_text
+                            }
                         }
-                    }
+                    else:
+                        print(f"Error: No review generated for {file_path}")
+                        return None
                 else:
                     print(f"Error reviewing {file_path}: {response.text}")
                     return None
@@ -123,27 +117,29 @@ jobs:
                 return None
 
         def generate_markdown_report(reviews):
-            review_categories = os.getenv('REVIEW_CATEGORIES', '').split(', ')
-            
-            markdown = "# 🤖 Comprehensive AI Code Review Report\n\n"
-            markdown += "## Overview\n\n"
-            
-            successful_reviews = [r for r in reviews if r]
-            markdown += f"**Total Files Reviewed:** {len(successful_reviews)}\n\n"
-            
-            markdown += "## Detailed Reviews\n\n"
-            
-            for file_review in successful_reviews:
-                filename = file_review.get('fileName', 'Unknown File')
-                markdown += f"### File: `{filename}`\n\n"
+            try:
+                markdown = "# 🤖 Comprehensive AI Code Review Report\n\n"
+                markdown += "## Overview\n\n"
                 
-                review_results = file_review.get('reviewResults', {})
-                comprehensive_review = review_results.get('comprehensive_review', '')
+                successful_reviews = [r for r in reviews if r]
+                markdown += f"**Total Files Reviewed:** {len(successful_reviews)}\n\n"
                 
-                markdown += "#### Comprehensive Review\n\n"
-                markdown += f"```markdown\n{sanitize_markdown(comprehensive_review)}\n```\n\n"
-            
-            return markdown
+                markdown += "## Detailed Reviews\n\n"
+                
+                for file_review in successful_reviews:
+                    filename = file_review.get('fileName', 'Unknown File')
+                    markdown += f"### File: `{filename}`\n\n"
+                    
+                    review_results = file_review.get('reviewResults', {})
+                    comprehensive_review = review_results.get('comprehensive_review', '')
+                    
+                    markdown += "#### Comprehensive Review\n\n"
+                    markdown += f"```markdown\n{sanitize_markdown(comprehensive_review)}\n```\n\n"
+                
+                return markdown
+            except Exception as e:
+                print(f"Error generating markdown report: {traceback.format_exc()}")
+                return "# Error Generating Report\nAn error occurred while generating the review report."
 
         EXCLUDE_DIRS = [
             '.git', 'node_modules', 'dist', 'build', 
@@ -174,8 +170,8 @@ jobs:
             
             with open('code-reviews/comprehensive_review.md', 'w', encoding='utf-8') as f:
                 f.write(report)
-        
-        if not reviews:
+            print("Review report generated successfully!")
+        else:
             print("No source code files found or reviewed.")
         EOF
     
