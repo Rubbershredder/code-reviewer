@@ -27,14 +27,12 @@ jobs:
     - name: Run Comprehensive Code Review
       env:
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        GEMINI_API_URL: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateText'
       run: |
         mkdir -p code-reviews
         python3 - << EOF
         import os
         import requests
         import json
-        import re
         import traceback
 
         def is_source_file(path):
@@ -56,41 +54,33 @@ jobs:
                 with open(file_path, 'r', encoding='utf-8') as f:
                     code = f.read()
                 
-                headers = {
-                    'Content-Type': 'application/json',
-                    'Authorization': f'Bearer {os.environ["GEMINI_API_KEY"]}'
-                }
+                api_key = os.environ["GEMINI_API_KEY"]
+                url = f"https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={api_key}"
                 
-                prompt = f"""
-                Please review the following code and provide a comprehensive analysis covering:
-                1. Code quality and best practices
-                2. Potential bugs and issues
-                3. Security considerations
-                4. Performance optimizations
-                5. Architecture and design
-                6. Maintainability
-
-                Code to review ({os.path.basename(file_path)}):
-
-                {code}
-                """
+                headers = {
+                    'Content-Type': 'application/json'
+                }
                 
                 payload = {
                     "contents": [{
                         "parts": [{
-                            "text": prompt
+                            "text": f"""Please review the following code and provide a comprehensive analysis covering:
+                                    1. Code quality and best practices
+                                    2. Potential bugs and issues
+                                    3. Security considerations
+                                    4. Performance optimizations
+                                    5. Architecture and design
+                                    6. Maintainability
+
+                                    Code to review ({os.path.basename(file_path)}):
+
+                                    {code}"""
                         }]
-                    }],
-                    "generationConfig": {
-                        "temperature": 0.7,
-                        "topK": 40,
-                        "topP": 0.95,
-                        "maxOutputTokens": 2048,
-                    }
+                    }]
                 }
                 
                 response = requests.post(
-                    os.environ["GEMINI_API_URL"],
+                    url,
                     headers=headers,
                     json=payload,
                     timeout=300
@@ -110,7 +100,7 @@ jobs:
                         print(f"Error: No review generated for {file_path}")
                         return None
                 else:
-                    print(f"Error reviewing {file_path}: {response.text}")
+                    print(f"Error reviewing {file_path} (Status {response.status_code}): {response.text}")
                     return None
             except Exception as e:
                 print(f"Exception reviewing {file_path}: {traceback.format_exc()}")
@@ -123,6 +113,10 @@ jobs:
                 
                 successful_reviews = [r for r in reviews if r]
                 markdown += f"**Total Files Reviewed:** {len(successful_reviews)}\n\n"
+                
+                if not successful_reviews:
+                    markdown += "No files were successfully reviewed. Please check the action logs for errors.\n\n"
+                    return markdown
                 
                 markdown += "## Detailed Reviews\n\n"
                 
@@ -150,6 +144,10 @@ jobs:
         def should_exclude(path):
             return any(exclude in path.split(os.path.sep) for exclude in EXCLUDE_DIRS)
 
+        # Print API key length for debugging (don't print the actual key)
+        api_key = os.environ.get("GEMINI_API_KEY", "")
+        print(f"API key length: {len(api_key)}")
+        
         # Recursively find and review source code files
         reviews = []
         for root, _, files in os.walk('.'):
@@ -165,14 +163,13 @@ jobs:
                     reviews.append(review)
 
         # Generate comprehensive markdown report
-        if reviews:
-            report = generate_markdown_report(reviews)
-            
-            with open('code-reviews/comprehensive_review.md', 'w', encoding='utf-8') as f:
-                f.write(report)
-            print("Review report generated successfully!")
-        else:
-            print("No source code files found or reviewed.")
+        report = generate_markdown_report(reviews)
+        
+        with open('code-reviews/comprehensive_review.md', 'w', encoding='utf-8') as f:
+            f.write(report)
+        
+        if not reviews:
+            print("No source code files were successfully reviewed.")
         EOF
     
     - name: Commit Review Results
