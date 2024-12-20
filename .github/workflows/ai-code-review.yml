@@ -13,6 +13,8 @@ jobs:
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history for better diff analysis
     
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -34,6 +36,23 @@ jobs:
         import requests
         import json
         import traceback
+        import subprocess
+
+        def get_changed_files():
+            try:
+                # For pull requests
+                if os.environ.get('GITHUB_EVENT_NAME') == 'pull_request':
+                    base = os.environ.get('GITHUB_BASE_REF')
+                    cmd = f"git diff --name-only origin/{base}...HEAD"
+                else:
+                    # For pushes, get last commit's changed files
+                    cmd = "git diff-tree --no-commit-id --name-only -r HEAD"
+                
+                result = subprocess.run(cmd.split(), capture_output=True, text=True)
+                return result.stdout.strip().split('\n')
+            except Exception as e:
+                print(f"Error getting changed files: {str(e)}")
+                return []
 
         def is_source_file(path):
             source_extensions = [
@@ -61,22 +80,45 @@ jobs:
                     'Content-Type': 'application/json'
                 }
                 
+                prompt = f"""As an expert code reviewer, analyze this code and provide a detailed review. Focus on:
+
+                1. Critical Issues:
+                   - Security vulnerabilities
+                   - Major bugs
+                   - Performance bottlenecks
+                   - Memory leaks
+
+                2. Code Quality:
+                   - Design patterns
+                   - Code organization
+                   - Naming conventions
+                   - Documentation
+                   - Test coverage
+
+                3. Specific Recommendations:
+                   - Provide clear, actionable improvements
+                   - Include code examples where relevant
+                   - Prioritize the changes needed
+
+                File: {os.path.basename(file_path)}
+
+                Code:
+                {code}
+
+                Format your response with clear headers and bullet points."""
+                
                 payload = {
                     "contents": [{
                         "parts": [{
-                            "text": f"""Please review the following code and provide a comprehensive analysis covering:
-                                    1. Code quality and best practices
-                                    2. Potential bugs and issues
-                                    3. Security considerations
-                                    4. Performance optimizations
-                                    5. Architecture and design
-                                    6. Maintainability
-
-                                    Code to review ({os.path.basename(file_path)}):
-
-                                    {code}"""
+                            "text": prompt
                         }]
-                    }]
+                    }],
+                    "generationConfig": {
+                        "temperature": 0.7,
+                        "topK": 40,
+                        "topP": 0.95,
+                        "maxOutputTokens": 2048,
+                    }
                 }
                 
                 response = requests.post(
@@ -92,6 +134,7 @@ jobs:
                         review_text = response_json['candidates'][0]['content']['parts'][0]['text']
                         return {
                             'fileName': os.path.basename(file_path),
+                            'filePath': file_path,
                             'reviewResults': {
                                 'comprehensive_review': review_text
                             }
@@ -108,59 +151,66 @@ jobs:
 
         def generate_markdown_report(reviews):
             try:
-                markdown = "# 🤖 Comprehensive AI Code Review Report\n\n"
-                markdown += "## Overview\n\n"
+                markdown = "# 🤖 AI Code Review Report\n\n"
+                
+                # Add timestamp
+                from datetime import datetime
+                markdown += f"Generated on: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}\n\n"
+                
+                markdown += "## 📊 Overview\n\n"
                 
                 successful_reviews = [r for r in reviews if r]
-                markdown += f"**Total Files Reviewed:** {len(successful_reviews)}\n\n"
+                markdown += f"**Files Reviewed:** {len(successful_reviews)}\n\n"
                 
                 if not successful_reviews:
-                    markdown += "No files were successfully reviewed. Please check the action logs for errors.\n\n"
+                    markdown += "⚠️ No files were successfully reviewed. Please check the action logs for errors.\n\n"
                     return markdown
                 
-                markdown += "## Detailed Reviews\n\n"
+                markdown += "## 📝 Detailed Reviews\n\n"
                 
                 for file_review in successful_reviews:
                     filename = file_review.get('fileName', 'Unknown File')
-                    markdown += f"### File: `{filename}`\n\n"
+                    filepath = file_review.get('filePath', 'Unknown Path')
+                    markdown += f"### 📎 `{filepath}`\n\n"
                     
                     review_results = file_review.get('reviewResults', {})
                     comprehensive_review = review_results.get('comprehensive_review', '')
                     
-                    markdown += "#### Comprehensive Review\n\n"
-                    markdown += f"```markdown\n{sanitize_markdown(comprehensive_review)}\n```\n\n"
+                    markdown += f"{comprehensive_review}\n\n"
+                    markdown += "---\n\n"
                 
                 return markdown
             except Exception as e:
                 print(f"Error generating markdown report: {traceback.format_exc()}")
-                return "# Error Generating Report\nAn error occurred while generating the review report."
+                return "# ❌ Error Generating Report\nAn error occurred while generating the review report."
 
         EXCLUDE_DIRS = [
             '.git', 'node_modules', 'dist', 'build', 
             'venv', '.venv', 'env', '.env', 
-            'coverage', 'logs', '__pycache__'
+            'coverage', 'logs', '__pycache__',
+            'code-reviews'  # Exclude our own output directory
         ]
 
         def should_exclude(path):
             return any(exclude in path.split(os.path.sep) for exclude in EXCLUDE_DIRS)
 
-        # Print API key length for debugging (don't print the actual key)
-        api_key = os.environ.get("GEMINI_API_KEY", "")
-        print(f"API key length: {len(api_key)}")
+        # Get list of changed files
+        changed_files = get_changed_files()
+        print(f"Changed files: {changed_files}")
         
-        # Recursively find and review source code files
+        # Review only changed source code files
         reviews = []
-        for root, _, files in os.walk('.'):
-            for file in files:
-                full_path = os.path.join(root, file)
+        for file_path in changed_files:
+            if not os.path.exists(file_path):
+                continue
                 
-                if should_exclude(full_path) or not is_source_file(full_path):
-                    continue
-                
-                print(f"Reviewing: {full_path}")
-                review = review_code(full_path)
-                if review:
-                    reviews.append(review)
+            if should_exclude(file_path) or not is_source_file(file_path):
+                continue
+            
+            print(f"Reviewing: {file_path}")
+            review = review_code(file_path)
+            if review:
+                reviews.append(review)
 
         # Generate comprehensive markdown report
         report = generate_markdown_report(reviews)
@@ -177,5 +227,5 @@ jobs:
         git config user.name github-actions
         git config user.email github-actions@github.com
         git add code-reviews/comprehensive_review.md || true
-        git commit -m "Add AI Code Review Report" || true
+        git commit -m "📊 Add AI Code Review Report [skip ci]" || true
         git push || true
