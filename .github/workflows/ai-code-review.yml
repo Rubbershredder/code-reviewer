@@ -49,7 +49,9 @@ jobs:
                     cmd = "git diff-tree --no-commit-id --name-only -r HEAD"
                 
                 result = subprocess.run(cmd.split(), capture_output=True, text=True)
-                return result.stdout.strip().split('\n')
+                files = result.stdout.strip().split('\n')
+                print(f"Debug - Raw changed files: {files}")  # Debug output
+                return files
             except Exception as e:
                 print(f"Error getting changed files: {str(e)}")
                 return []
@@ -59,9 +61,13 @@ jobs:
                 '.py', '.js', '.jsx', '.ts', '.tsx', 
                 '.java', '.cpp', '.c', '.rb', '.go', 
                 '.php', '.swift', '.kt', '.rs', 
-                '.html', '.css', '.scss', '.lua'
+                '.html', '.css', '.scss', '.lua',
+                '.yml', '.yaml'  # Added YAML files to review list
             ]
-            return any(path.endswith(ext) for ext in source_extensions)
+            print(f"Debug - Checking file: {path}")  # Debug output
+            is_source = any(path.endswith(ext) for ext in source_extensions)
+            print(f"Debug - Is source file: {is_source}")  # Debug output
+            return is_source
 
         def sanitize_markdown(text):
             if not text:
@@ -70,10 +76,15 @@ jobs:
 
         def review_code(file_path):
             try:
+                print(f"Debug - Attempting to review: {file_path}")  # Debug output
                 with open(file_path, 'r', encoding='utf-8') as f:
                     code = f.read()
                 
-                api_key = os.environ["GEMINI_API_KEY"]
+                api_key = os.environ.get("GEMINI_API_KEY")
+                if not api_key:
+                    print("Error: GEMINI_API_KEY is not set")
+                    return None
+                
                 url = f"https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={api_key}"
                 
                 headers = {
@@ -86,18 +97,17 @@ jobs:
                    - Security vulnerabilities
                    - Major bugs
                    - Performance bottlenecks
-                   - Memory leaks
+                   - Configuration issues
 
                 2. Code Quality:
-                   - Design patterns
+                   - Best practices
                    - Code organization
-                   - Naming conventions
                    - Documentation
-                   - Test coverage
+                   - Maintainability
 
                 3. Specific Recommendations:
                    - Provide clear, actionable improvements
-                   - Include code examples where relevant
+                   - Include examples where relevant
                    - Prioritize the changes needed
 
                 File: {os.path.basename(file_path)}
@@ -121,12 +131,15 @@ jobs:
                     }
                 }
                 
+                print(f"Debug - Making API request for {file_path}")  # Debug output
                 response = requests.post(
                     url,
                     headers=headers,
                     json=payload,
                     timeout=300
                 )
+                
+                print(f"Debug - API response status: {response.status_code}")  # Debug output
                 
                 if response.status_code == 200:
                     response_json = response.json()
@@ -153,7 +166,6 @@ jobs:
             try:
                 markdown = "# 🤖 AI Code Review Report\n\n"
                 
-                # Add timestamp
                 from datetime import datetime
                 markdown += f"Generated on: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}\n\n"
                 
@@ -192,25 +204,36 @@ jobs:
         ]
 
         def should_exclude(path):
-            return any(exclude in path.split(os.path.sep) for exclude in EXCLUDE_DIRS)
+            excluded = any(exclude in path.split(os.path.sep) for exclude in EXCLUDE_DIRS)
+            print(f"Debug - Path {path} excluded: {excluded}")  # Debug output
+            return excluded
+
+        # Print current working directory and list files
+        print(f"Debug - Current working directory: {os.getcwd()}")
+        print(f"Debug - Files in current directory: {os.listdir('.')}")
 
         # Get list of changed files
         changed_files = get_changed_files()
-        print(f"Changed files: {changed_files}")
+        print(f"Debug - Changed files after processing: {changed_files}")
         
         # Review only changed source code files
         reviews = []
         for file_path in changed_files:
             if not os.path.exists(file_path):
+                print(f"Debug - File does not exist: {file_path}")
                 continue
                 
             if should_exclude(file_path) or not is_source_file(file_path):
+                print(f"Debug - File excluded or not source: {file_path}")
                 continue
             
-            print(f"Reviewing: {file_path}")
+            print(f"Debug - Starting review for: {file_path}")
             review = review_code(file_path)
             if review:
                 reviews.append(review)
+                print(f"Debug - Review completed for: {file_path}")
+            else:
+                print(f"Debug - Review failed for: {file_path}")
 
         # Generate comprehensive markdown report
         report = generate_markdown_report(reviews)
