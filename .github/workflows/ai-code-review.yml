@@ -10,288 +10,218 @@ jobs:
   ai-code-review:
     runs-on: ubuntu-latest
     
+    env:
+      OLLAMA_HOST: http://localhost:11434
+      REVIEW_CATEGORIES: "1. COMPREHENSIVE CODE ANALYSIS, 2. CRITICAL BUG DETECTION, 3. CODE QUALITY ASSESSMENT, 4. PERFORMANCE OPTIMIZATION, 5. SECURITY VULNERABILITY ASSESSMENT, 6. SCALABILITY AND ARCHITECTURE, 7. ERROR HANDLING AND RESILIENCE, 8. CODE MODERNIZATION SUGGESTIONS, 9. COMPLIANCE AND STANDARDS, 10. CONCLUSIVE RECOMMENDATION"
+    
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
     
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.9'
     
+    - name: Install Ollama
+      run: |
+        curl -fsSL https://ollama.com/install.sh | sh
+        
+        # Start Ollama service
+        ollama serve &
+        
+        # Wait for Ollama to be fully operational
+        for i in {1..30}; do
+          if curl -s http://localhost:11434/api/health >/dev/null; then
+            echo "✓ Ollama is running"
+            break
+          fi
+          echo "Waiting for Ollama to start..."
+          sleep 2
+        done
+    
+    - name: Pull and Verify Llama Model
+      run: |
+        ollama pull llama2:latest
+        # Verify model is pulled correctly
+        ollama list | grep llama2
+    
     - name: Install Python Dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install requests
-
-    - name: Run Comprehensive Code Review
-      env:
-        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        pip install requests flask flask-cors
+    
+    - name: Create Review Script
       run: |
-        mkdir -p code-reviews
-        python3 - << EOF
+        cat > review_code.py << 'EOF'
         import os
         import requests
         import json
         import traceback
-        import subprocess
-        from datetime import datetime
+        from flask import Flask, request, jsonify
+        from threading import Thread
+        import time
 
-        class CodeReviewer:
-            def __init__(self):
-                self.api_key = os.environ.get("GEMINI_API_KEY")
-                if not self.api_key:
-                    raise ValueError("GEMINI_API_KEY not found in environment variables")
+        app = Flask(__name__)
+
+        @app.route('/api/review', methods=['POST'])
+        def review_code():
+            try:
+                data = request.json
+                code = data['code']
+                filename = data['fileName']
                 
-                self.source_extensions = {
-                    '.py': 'Python',
-                    '.js': 'JavaScript',
-                    '.jsx': 'React',
-                    '.ts': 'TypeScript',
-                    '.tsx': 'React TypeScript',
-                    '.java': 'Java',
-                    '.cpp': 'C++',
-                    '.c': 'C',
-                    '.rb': 'Ruby',
-                    '.go': 'Go',
-                    '.php': 'PHP',
-                    '.swift': 'Swift',
-                    '.kt': 'Kotlin',
-                    '.rs': 'Rust',
-                    '.html': 'HTML',
-                    '.css': 'CSS',
-                    '.scss': 'SCSS',
-                    '.yml': 'YAML',
-                    '.yaml': 'YAML',
-                    '.json': 'JSON'
-                }
+                # Prepare prompt for code review
+                prompt = f"""Please review the following code from {filename}. Provide a comprehensive analysis covering:
+                {os.getenv('REVIEW_CATEGORIES')}
                 
-                self.exclude_dirs = {
-                    '.git', 'node_modules', 'dist', 'build',
-                    'venv', '.venv', 'env', '.env',
-                    'coverage', 'logs', '__pycache__',
-                    'code-reviews'
-                }
-
-            def get_changed_files(self):
-                """Get list of files changed in the current commit/PR."""
-                try:
-                    if os.environ.get('GITHUB_EVENT_NAME') == 'pull_request':
-                        base = os.environ.get('GITHUB_BASE_REF')
-                        cmd = f"git diff --name-only origin/{base}...HEAD"
-                    else:
-                        cmd = "git diff-tree --no-commit-id --name-only -r HEAD"
-                    
-                    result = subprocess.run(cmd.split(), capture_output=True, text=True)
-                    return result.stdout.strip().split('\n')
-                except Exception as e:
-                    print(f"Error getting changed files: {str(e)}")
-                    return []
-
-            def should_review_file(self, path):
-                """Check if file should be reviewed."""
-                if any(exclude in path.split(os.path.sep) for exclude in self.exclude_dirs):
-                    return False
-                return any(path.endswith(ext) for ext in self.source_extensions.keys())
-
-            def get_file_language(self, path):
-                """Get programming language based on file extension."""
-                ext = os.path.splitext(path)[1]
-                return self.source_extensions.get(ext, 'Unknown')
-
-            def scrape_file(self, file_path):
-                """Scrape file content and metadata into JSON format."""
-                try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                    
-                    file_info = {
-                        'file_path': file_path,
-                        'file_name': os.path.basename(file_path),
-                        'language': self.get_file_language(file_path),
-                        'size_bytes': os.path.getsize(file_path),
-                        'last_modified': datetime.fromtimestamp(os.path.getmtime(file_path)).isoformat(),
-                        'content': content
+                Here's the code to review:
+                
+                {code}
+                """
+                
+                # Send to local Ollama
+                response = requests.post(
+                    f"{os.getenv('OLLAMA_HOST')}/api/generate",
+                    json={
+                        "model": "llama2",
+                        "prompt": prompt,
+                        "stream": False
                     }
-                    
-                    return file_info
-                except Exception as e:
-                    print(f"Error scraping file {file_path}: {str(e)}")
-                    return None
-
-            def review_code(self, file_info):
-                """Send code to Gemini API for review."""
-                try:
-                    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={self.api_key}"
-                    
-                    prompt = f"""As an expert code reviewer, analyze this {file_info['language']} code and provide a detailed review in JSON format. 
-                    Include the following sections:
-                    
-                    1. Critical Issues
-                       - Security vulnerabilities
-                       - Major bugs
-                       - Performance issues
-                       - Configuration problems
-                    
-                    2. Code Quality
-                       - Design patterns
-                       - Best practices
-                       - Documentation
-                       - Maintainability
-                    
-                    3. Recommendations
-                       - Specific improvements
-                       - Code examples
-                       - Priority level
-                    
-                    File: {file_info['file_path']}
-                    
-                    Code:
-                    {file_info['content']}
-                    
-                    Provide the response in this JSON structure:
-                    {{
-                        "critical_issues": [
-                            {{"issue": "description", "severity": "HIGH|MEDIUM|LOW", "type": "SECURITY|BUG|PERFORMANCE|CONFIG"}}
-                        ],
-                        "code_quality": {{
-                            "patterns": ["list of patterns found"],
-                            "best_practices": ["list of best practices observations"],
-                            "documentation": "documentation assessment",
-                            "maintainability_score": "1-10 score"
-                        }},
-                        "recommendations": [
-                            {{"description": "what to improve", "priority": "HIGH|MEDIUM|LOW", "example": "code example if applicable"}}
-                        ]
-                    }}
-                    """
-                    
-                    payload = {
-                        "contents": [{
-                            "parts": [{
-                                "text": prompt
-                            }]
-                        }],
-                        "generationConfig": {
-                            "temperature": 0.7,
-                            "topK": 40,
-                            "topP": 0.95,
-                            "maxOutputTokens": 2048,
+                )
+                
+                if response.status_code == 200:
+                    review_text = response.json()['response']
+                    return jsonify({
+                        'fileName': filename,
+                        'reviewResults': {
+                            'comprehensive_review': review_text
                         }
-                    }
-                    
-                    response = requests.post(
-                        url,
-                        headers={'Content-Type': 'application/json'},
-                        json=payload,
-                        timeout=300
-                    )
-                    
-                    if response.status_code == 200:
-                        response_json = response.json()
-                        if 'candidates' in response_json and response_json['candidates']:
-                            review_text = response_json['candidates'][0]['content']['parts'][0]['text']
-                            # Parse the review text as JSON
-                            try:
-                                review_json = json.loads(review_text)
-                                return {
-                                    'file_info': file_info,
-                                    'review': review_json,
-                                    'timestamp': datetime.utcnow().isoformat()
-                                }
-                            except json.JSONDecodeError:
-                                print(f"Error parsing review JSON for {file_info['file_path']}")
-                                return None
-                    
-                    print(f"Error calling API: {response.status_code} - {response.text}")
-                    return None
-                except Exception as e:
-                    print(f"Error reviewing {file_info['file_path']}: {str(e)}")
-                    return None
-
-            def run_reviews(self):
-                """Run the complete review process."""
-                changed_files = self.get_changed_files()
-                reviews = []
-                
-                for file_path in changed_files:
-                    if not os.path.exists(file_path) or not self.should_review_file(file_path):
-                        continue
-                    
-                    print(f"Processing: {file_path}")
-                    file_info = self.scrape_file(file_path)
-                    if file_info:
-                        review = self.review_code(file_info)
-                        if review:
-                            reviews.append(review)
-                
-                # Save all reviews to JSON file
-                output = {
-                    'timestamp': datetime.utcnow().isoformat(),
-                    'total_files': len(reviews),
-                    'reviews': reviews
-                }
-                
-                with open('code-reviews/reviews.json', 'w', encoding='utf-8') as f:
-                    json.dump(output, f, indent=2)
-                
-                # Generate markdown report
-                self.generate_markdown_report(output)
-
-            def generate_markdown_report(self, review_data):
-                """Generate markdown report from JSON reviews."""
-                markdown = f"# 🤖 AI Code Review Report\n\n"
-                markdown += f"Generated on: {review_data['timestamp']}\n\n"
-                markdown += f"## 📊 Overview\n\n"
-                markdown += f"**Files Reviewed:** {review_data['total_files']}\n\n"
-                
-                if not review_data['reviews']:
-                    markdown += "⚠️ No files were successfully reviewed.\n\n"
+                    })
                 else:
-                    markdown += "## 📝 Detailed Reviews\n\n"
+                    return jsonify({'error': 'Failed to get review from Ollama'}), 500
                     
-                    for review in review_data['reviews']:
-                        file_info = review['file_info']
-                        review_data = review['review']
-                        
-                        markdown += f"### 📎 `{file_info['file_path']}`\n\n"
-                        markdown += f"**Language:** {file_info['language']}\n\n"
-                        
-                        markdown += "#### Critical Issues\n\n"
-                        for issue in review_data['critical_issues']:
-                            markdown += f"- [{issue['severity']}] {issue['type']}: {issue['issue']}\n"
-                        
-                        markdown += "\n#### Code Quality\n\n"
-                        markdown += f"- **Maintainability Score:** {review_data['code_quality']['maintainability_score']}/10\n"
-                        markdown += f"- **Documentation:** {review_data['code_quality']['documentation']}\n"
-                        
-                        markdown += "\n#### Recommendations\n\n"
-                        for rec in review_data['recommendations']:
-                            markdown += f"- [{rec['priority']}] {rec['description']}\n"
-                            if rec.get('example'):
-                                markdown += f"  ```\n  {rec['example']}\n  ```\n"
-                        
-                        markdown += "\n---\n\n"
-                
-                with open('code-reviews/comprehensive_review.md', 'w', encoding='utf-8') as f:
-                    f.write(markdown)
+            except Exception as e:
+                return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
 
-        # Run the review process
-        try:
-            reviewer = CodeReviewer()
-            reviewer.run_reviews()
-        except Exception as e:
-            print(f"Error running code review: {str(e)}")
-            with open('code-reviews/comprehensive_review.md', 'w') as f:
-                f.write(f"# ❌ Error Running Code Review\n\nAn error occurred: {str(e)}")
+        def run_flask():
+            app.run(host='0.0.0.0', port=5000)
+
+        if __name__ == '__main__':
+            flask_thread = Thread(target=run_flask)
+            flask_thread.start()
+            print("Flask server started")
+        EOF
+    
+    - name: Start Review Server
+      run: |
+        python review_code.py &
+        echo "Waiting for server to start..."
+        sleep 5
+        
+        # Verify server is running
+        if curl -s http://localhost:5000/api/review -X POST -H "Content-Type: application/json" -d '{"code":"test","fileName":"test.py"}' > /dev/null; then
+          echo "✓ Review server is operational"
+        else
+          echo "× Failed to verify review server"
+          exit 1
+        fi
+    
+    - name: Run Code Review
+      run: |
+        mkdir -p code-reviews
+        
+        python3 << 'EOF'
+        import os
+        import requests
+        import json
+        
+        def is_source_file(path):
+            source_extensions = [
+                '.py', '.js', '.jsx', '.ts', '.tsx', 
+                '.java', '.cpp', '.c', '.rb', '.go', 
+                '.php', '.swift', '.kt', '.rs', 
+                '.html', '.css', '.scss', '.lua'
+            ]
+            return any(path.endswith(ext) for ext in source_extensions)
+        
+        def should_exclude(path):
+            exclude_dirs = [
+                '.git', 'node_modules', 'dist', 'build', 
+                'venv', '.venv', 'env', '.env', 
+                'coverage', 'logs', '__pycache__'
+            ]
+            return any(exclude in path.split(os.path.sep) for exclude in exclude_dirs)
+        
+        def review_file(file_path):
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    code = f.read()
+                
+                response = requests.post(
+                    'http://localhost:5000/api/review',
+                    json={'code': code, 'fileName': os.path.basename(file_path)},
+                    timeout=300
+                )
+                
+                if response.status_code == 200:
+                    return response.json()
+                else:
+                    print(f"Error reviewing {file_path}: {response.text}")
+                return None
+            except Exception as e:
+                print(f"Exception reviewing {file_path}: {str(e)}")
+                return None
+        
+        def generate_report(reviews):
+            report = "# 🤖 AI Code Review Report\n\n"
+            
+            if not reviews:
+                report += "No files were reviewed.\n"
+                return report
+                
+            report += f"## Overview\n\n**Files Reviewed:** {len(reviews)}\n\n"
+            
+            for review in reviews:
+                if not review:
+                    continue
+                    
+                filename = review.get('fileName', 'Unknown File')
+                review_results = review.get('reviewResults', {})
+                comprehensive_review = review_results.get('comprehensive_review', '')
+                
+                report += f"## File: `{filename}`\n\n"
+                report += f"### Review\n\n{comprehensive_review}\n\n"
+                report += "---\n\n"
+            
+            return report
+        
+        # Main review process
+        reviews = []
+        for root, _, files in os.walk('.'):
+            for file in files:
+                full_path = os.path.join(root, file)
+                
+                if should_exclude(full_path) or not is_source_file(full_path):
+                    continue
+                
+                print(f"Reviewing: {full_path}")
+                review = review_file(full_path)
+                if review:
+                    reviews.append(review)
+        
+        # Generate and save report
+        report = generate_report(reviews)
+        with open('code-reviews/review_report.md', 'w', encoding='utf-8') as f:
+            f.write(report)
+        
+        print("Review completed. Report generated at code-reviews/review_report.md")
         EOF
     
     - name: Commit Review Results
       run: |
         git config user.name github-actions
         git config user.email github-actions@github.com
-        git add code-reviews/reviews.json code-reviews/comprehensive_review.md || true
-        git commit -m "📊 Add AI Code Review Report [skip ci]" || true
+        git add code-reviews/review_report.md || true
+        git commit -m "Add AI Code Review Report [skip ci]" || true
         git push || true
