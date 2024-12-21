@@ -12,9 +12,89 @@ jobs:
     
     env:
       OLLAMA_HOST: http://localhost:11434
-      REVIEW_CATEGORIES: "1. COMPREHENSIVE CODE ANALYSIS, 2. CRITICAL BUG DETECTION, 3. CODE QUALITY ASSESSMENT, 4. PERFORMANCE OPTIMIZATION, 5. SECURITY VULNERABILITY ASSESSMENT, 6. SCALABILITY AND ARCHITECTURE, 7. ERROR HANDLING AND RESILIENCE, 8. CODE MODERNIZATION SUGGESTIONS, 9. COMPLIANCE AND STANDARDS, 10. CONCLUSIVE RECOMMENDATION"
+      REVIEW_CATEGORIES: |
+        # Advanced Code Analysis Pre-Prompt
+        ## Primary Analysis Parameters
+        Perform a comprehensive static and dynamic code analysis with the following focus areas:
+        ### 1. Metric Collection
+        - Calculate cyclomatic complexity for each function
+        - Measure Halstead complexity metrics
+        - Generate maintainability index
+        - Count effective lines of code (eLOC)
+        - Assess comment-to-code ratio
+        - Identify duplicate code segments (with >3 lines)
+        ### 2. Variable and Resource Analysis
+        - Track variable lifecycle and usage patterns
+        - Identify unused or redundant variables
+        - Detect memory leaks and resource management issues
+        - Analyze scope contamination
+        - Check for proper initialization
+        ### 3. Control Flow Analysis
+        - Map execution paths
+        - Identify unreachable code
+        - Detect infinite loops
+        - Analyze exception handling paths
+        - Evaluate branching complexity
+        ### 4. Data Flow Analysis
+        - Track data transformations
+        - Identify potential null references
+        - Check for uninitialized variables
+        - Analyze type consistency
+        - Evaluate thread safety
+        ### 5. Security Assessment
+        - Check for common vulnerability patterns
+        - Analyze input validation
+        - Evaluate output encoding
+        - Assess authentication mechanisms
+        - Review authorization controls
+        ### 6. Performance Profiling
+        - Calculate algorithmic complexity
+        - Identify performance bottlenecks
+        - Analyze memory usage patterns
+        - Evaluate I/O operations
+        - Check resource utilization
+        ### 7. Code Style and Standards
+        - Verify naming conventions
+        - Check formatting consistency
+        - Assess documentation quality
+        - Evaluate code organization
+        - Review error handling practices
+        ## Output Format Requirements
+        Generate a structured analysis report including:
+        1. Executive Summary
+           - Overall code quality score (0-100)
+           - Critical issues count
+           - High-priority recommendations
+           - Technical debt assessment
+        2. Detailed Metrics
+           - Complexity scores
+           - Quality metrics
+           - Performance indicators
+           - Security ratings
+        3. Issue Analysis
+           - Categorized problems
+           - Root cause analysis
+           - Impact assessment
+           - Resolution priority
+        4. Recommendations
+           - Specific refactoring suggestions
+           - Optimization opportunities
+           - Security improvements
+           - Best practice alignment
+        5. Visualization Data
+           - Complexity trends
+           - Issue distribution
+           - Quality metrics
+           - Performance patterns
+        ## Special Considerations
+        - Identify language-specific idioms and patterns
+        - Consider framework-specific best practices
+        - Evaluate cloud-native compatibility
+        - Assess microservices architecture alignment
+        - Review API design principles
     
     steps:
+    # Rest of the workflow remains the same
     - name: Checkout Repository
       uses: actions/checkout@v4
     
@@ -42,9 +122,9 @@ jobs:
     
     - name: Pull and Verify Llama Model
       run: |
-        ollama pull llama2:latest
+        ollama pull llama3.2:latest
         # Verify model is pulled correctly
-        ollama list | grep llama2
+        ollama list | grep llama3.2
     
     - name: Install Python Dependencies
       run: |
@@ -72,7 +152,8 @@ jobs:
                 filename = data['fileName']
                 
                 # Prepare prompt for code review
-                prompt = f"""Please review the following code from {filename}. Provide a comprehensive analysis covering:
+                prompt = f"""Please review the following code from {filename}. 
+                
                 {os.getenv('REVIEW_CATEGORIES')}
                 
                 Here's the code to review:
@@ -84,7 +165,7 @@ jobs:
                 response = requests.post(
                     f"{os.getenv('OLLAMA_HOST')}/api/generate",
                     json={
-                        "model": "llama2",
+                        "model": "llama3.2:latest",
                         "prompt": prompt,
                         "stream": False
                     }
