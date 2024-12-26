@@ -24,77 +24,85 @@ def generate_comprehensive_code_review_prompt() -> str:
         str: A meticulously crafted prompt for thorough code analysis
     """
     return """
-You are a senior software engineer and code quality expert performing an exhaustive code review. 
-Analyze the provided code with extreme depth and precision across multiple critical dimensions:
-
-1. COMPREHENSIVE CODE ANALYSIS
-   - Detailed algorithmic breakdown
-   - Architectural design evaluation
-   - Potential design pattern applications
-   - Code complexity metrics
-
-2. CRITICAL BUG DETECTION
-   - Identify latent and manifest bugs
-   - Potential runtime vulnerabilities
-   - Edge case failure scenarios
-   - Subtle logical inconsistencies
-   - Performance-related anti-patterns
-
-3. CODE QUALITY ASSESSMENT
-   - Adherence to language-specific best practices
-   - Naming convention compliance
-   - Modularity and separation of concerns
-   - Code duplication analysis
-   - Maintainability index
-
-4. PERFORMANCE OPTIMIZATION
-   - Time complexity analysis
-   - Space complexity evaluation
-   - Potential bottlenecks
-   - Algorithmic efficiency recommendations
-   - Resource utilization patterns
-
-5. SECURITY VULNERABILITY ASSESSMENT
-   - Potential injection points
-   - Authentication and authorization weaknesses
-   - Data validation and sanitization gaps
-   - Cryptographic considerations
-   - Threat modeling insights
-
-6. SCALABILITY AND ARCHITECTURE
-   - Horizontal and vertical scaling potential
-   - Architectural flexibility
-   - Dependency management
-   - System integration considerations
-   - Future extensibility
-
-7. ERROR HANDLING AND RESILIENCE
-   - Exception management strategies
-   - Graceful degradation mechanisms
-   - Logging and monitoring recommendations
-   - Fault tolerance evaluation
-
-8. CODE MODERNIZATION SUGGESTIONS
-   - Language-specific idiomatic improvements
-   - Recommended design pattern refactorings
-   - Modern programming paradigm alignments
-   - Technical debt reduction strategies
-
-9. COMPLIANCE AND STANDARDS
-   - Industry coding standards adherence
-   - Potential regulatory compliance issues
-   - Best practice alignment
-   - Code review checklist validation
-
-10. CONCLUSIVE RECOMMENDATION
-    - Holistic code quality rating
-    - Priority-ranked improvement suggestions
-    - Potential refactoring roadmap
-    - Advanced optimization strategies
-
-Provide a meticulously structured, deeply technical, and actionable analysis that goes beyond surface-level observations.
-
-CODE TO ANALYZE:
+# Advanced Code Analysis Pre-Prompt
+        ## Primary Analysis Parameters
+        Perform a comprehensive static and dynamic code analysis with the following focus areas:
+        ### 1. Metric Collection
+        - Calculate cyclomatic complexity for each function
+        - Measure Halstead complexity metrics
+        - Generate maintainability index
+        - Count effective lines of code (eLOC)
+        - Assess comment-to-code ratio
+        - Identify duplicate code segments (with >3 lines)
+        ### 2. Variable and Resource Analysis
+        - Track variable lifecycle and usage patterns
+        - Identify unused or redundant variables
+        - Detect memory leaks and resource management issues
+        - Analyze scope contamination
+        - Check for proper initialization
+        ### 3. Control Flow Analysis
+        - Map execution paths
+        - Identify unreachable code
+        - Detect infinite loops
+        - Analyze exception handling paths
+        - Evaluate branching complexity
+        ### 4. Data Flow Analysis
+        - Track data transformations
+        - Identify potential null references
+        - Check for uninitialized variables
+        - Analyze type consistency
+        - Evaluate thread safety
+        ### 5. Security Assessment
+        - Check for common vulnerability patterns
+        - Analyze input validation
+        - Evaluate output encoding
+        - Assess authentication mechanisms
+        - Review authorization controls
+        ### 6. Performance Profiling
+        - Calculate algorithmic complexity
+        - Identify performance bottlenecks
+        - Analyze memory usage patterns
+        - Evaluate I/O operations
+        - Check resource utilization
+        ### 7. Code Style and Standards
+        - Verify naming conventions
+        - Check formatting consistency
+        - Assess documentation quality
+        - Evaluate code organization
+        - Review error handling practices
+        ## Output Format Requirements
+        Generate a structured analysis report including:
+        1. Executive Summary
+           - Overall code quality score (0-100)
+           - Critical issues count
+           - High-priority recommendations
+           - Technical debt assessment
+        2. Detailed Metrics
+           - Complexity scores
+           - Quality metrics
+           - Performance indicators
+           - Security ratings
+        3. Issue Analysis
+           - Categorized problems
+           - Root cause analysis
+           - Impact assessment
+           - Resolution priority
+        4. Recommendations
+           - Specific refactoring suggestions
+           - Optimization opportunities
+           - Security improvements
+           - Best practice alignment
+        5. Visualization Data
+           - Complexity trends
+           - Issue distribution
+           - Quality metrics
+           - Performance patterns
+        ## Special Considerations
+        - Identify language-specific idioms and patterns
+        - Consider framework-specific best practices
+        - Evaluate cloud-native compatibility
+        - Assess microservices architecture alignment
+        - Review API design principles
 ```
 {code}
 ```
