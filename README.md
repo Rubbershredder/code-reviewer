@@ -101,6 +101,3 @@ We welcome contributions from the community. Please follow standard GitHub pull 
 - Ollama Llama 3.2 for providing the AI model
 - GitHub Actions for continuous integration support
 
-## License
-
-[Add your license information here]
