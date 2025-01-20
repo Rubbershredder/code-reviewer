@@ -1,149 +1,106 @@
-CodeSense
-Code Reviewer is an intelligent code review system designed to automate and streamline code analysis in modern development environments. Leveraging the Ollama Llama 3.2 model, it addresses the growing complexity of software projects by providing comprehensive code analysis through a responsive web interface and seamless GitHub Actions integration.
+# CodeSense Code Reviewer
 
-Features
-Intelligent Code Analysis: Utilizes the Ollama Llama 3.2 model to detect security vulnerabilities, performance bottlenecks, and code quality issues. 
-OLLAMA
+CodeSense Code Reviewer is an intelligent code analysis system that automates and streamlines the code review process in modern development environments. Powered by the Ollama Llama 3.2 model, it provides comprehensive code analysis through a responsive web interface and GitHub Actions integration.
 
-Dual-Platform Solution: Offers a responsive web interface built with React, TypeScript, and Tailwind CSS, alongside GitHub Actions integration for seamless workflow integration.
+## Features
 
-Automated Reporting: Generates detailed markdown reports to facilitate clear communication of code issues and recommendations across development teams.
+- **Intelligent Code Analysis**: Leverages Ollama Llama 3.2 model to detect security vulnerabilities, performance bottlenecks, and code quality issues
+- **Dual-Platform Solution**: Features a responsive web interface (React, TypeScript, Tailwind CSS) and GitHub Actions integration
+- **Automated Reporting**: Generates detailed markdown reports for clear communication across development teams
+- **Language-Agnostic Support**: Compatible with diverse technology stacks and modern microservices architectures
 
-Language-Agnostic Support: Supports diverse technology stacks and modern microservices architectures in enterprise environments.
+## System Architecture
 
-Web Application Implementation
-Frontend Architecture
-Framework: React with Vite for interface development.
-Language: TypeScript for type safety.
-Styling: Tailwind CSS for responsive design.
-Code Input: Supports text paste or file upload.
-Backend Processing
-Server: Python Flask handling API requests.
-AI Integration: Integration with Ollama Llama 3.2 model.
-Prompts: Pre-defined prompts for consistent analysis.
-Response Handling: Processes and formats AI model responses.
-Analysis Flow
-User submits code through the interface.
-Backend processes the submission.
-AI model analyzes the code based on predefined criteria:
-Security vulnerabilities
-Performance issues
-Code quality
-Potential improvements
-Results are displayed in a structured format.
-GitHub Integration Implementation
-Workflow Architecture
-Script: Custom YAML script for GitHub Actions.
-Scanning: Repository-wide code scanning.
-Reporting: Automated report generation.
-Analysis Process
-Workflow is triggered through GitHub Actions.
-Scans all repository files.
-Creates a dedicated report directory.
-Generates a comprehensive markdown report.
-Documents analysis for each file.
-Expected Outcomes
-Enhanced Code Quality & Security: Developers receive immediate, AI-powered analysis of their code, enabling early detection of issues.
+### Web Application
 
-Streamlined Development Workflow: The combination of an intuitive frontend and powerful backend creates a smooth, efficient workflow.
+#### Frontend
+- Framework: React with Vite
+- Language: TypeScript
+- Styling: Tailwind CSS
+- Features: Text paste and file upload support
 
-Automated Repository Management: GitHub integration automates codebase analysis, providing continuous feedback across the entire repository.
+#### Backend
+- Server: Python Flask
+- AI Integration: Ollama Llama 3.2 model
+- Processing: Custom prompts and response formatting
 
-Performance Optimization: The system's architecture ensures rapid analysis results even for large codebases while maintaining accuracy and detail in the reports.
+### GitHub Integration
+- Custom YAML workflow for GitHub Actions
+- Repository-wide code scanning
+- Automated markdown report generation
 
-Scalable Analysis Platform: The modular architecture allows for future enhancements, such as adding new analysis criteria or integrating additional AI models.
+## Prerequisites
 
-Getting Started
-To set up the Code Reviewer system, follow these steps:
+- Node.js and npm (Download from [nodejs.org](https://nodejs.org))
+- Python 3 (Download from [python.org](https://python.org))
+- Ollama (Installation instructions at [Ollama's GitHub repository](https://github.com/ollama/ollama))
 
-Prerequisites
-Ensure the following are installed on your system:
+## Installation
 
-Node.js and npm: Required for the frontend development. Download from nodejs.org.
-Python 3: Required for the backend development. Download from python.org.
-Ollama: To run the Llama 3.2 model locally. Follow the installation instructions at Ollama's GitHub repository.
-1. Clone the Repository
-Open your terminal and execute:
+1. **Clone the Repository**
+   ```bash
+   git clone https://github.com/Rubbershredder/code-reviewer.git
+   cd code-reviewer
+   ```
 
-bash
-Copy
-Edit
-git clone https://github.com/Rubbershredder/code-reviewer.git
-Navigate to the project directory:
+2. **Frontend Setup**
+   ```bash
+   cd frontend
+   npm install
+   ```
+   Create a `.env` file in the frontend directory with required environment variables.
 
-bash
-Copy
-Edit
-cd code-reviewer
-2. Install Dependencies
-Frontend
-Navigate to the frontend directory and install the necessary packages:
+3. **Backend Setup**
+   ```bash
+   cd ../backend
+   python3 -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+   Create a `.env` file in the backend directory with necessary configuration.
 
-bash
-Copy
-Edit
-cd frontend
-npm install
-Backend
-Navigate to the backend directory and set up a virtual environment:
+## Running the Application
 
-bash
-Copy
-Edit
-cd ../backend
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-Install the required Python packages:
+1. **Start Backend Server**
+   ```bash
+   # Ensure virtual environment is activated
+   python main.py
+   ```
 
-bash
-Copy
-Edit
-pip install -r requirements.txt
-3. Configure the Environment
-Frontend
-Create a .env file in the frontend directory to define environment variables as needed by your application.
+2. **Start Frontend Development Server**
+   ```bash
+   cd frontend
+   npm run dev
+   ```
 
-Backend
-Create a .env file in the backend directory with the necessary environment variables, such as API keys or configuration settings.
+## GitHub Actions Setup
 
-4. Run the Application
-Backend
-Ensure the virtual environment is activated, then start the Flask server:
+1. **Configure Repository Settings**
+   - Navigate to repository Settings → Actions → General
+   - Enable Actions
+   - Set "Workflow permissions" to "Read and write"
 
-bash
-Copy
-Edit
-python main.py
-Frontend
-In a separate terminal, navigate to the frontend directory and start the development server:
+2. **Create Workflow File**
+   - Create `.github/workflows/code-analysis.yml`
+   - Copy workflow configuration from `.github/workflows/ai-code-review.yml`
 
-bash
-Copy
-Edit
-npm run dev
-5. Set Up GitHub Actions
-To enable automated code analysis, configure GitHub Actions in your repository:
+## Expected Outcomes
 
-Configure Repository Settings:
+- Enhanced code quality through immediate AI-powered analysis
+- Streamlined development workflow with intuitive interface
+- Automated repository management and continuous feedback
+- Rapid analysis results for large codebases
+- Scalable platform supporting future enhancements
 
-Navigate to your repository on GitHub.
-Click on the Settings tab.
-In the left sidebar, select Actions, then click on General.
-Under "Actions permissions", ensure that actions are allowed to run.
-Under "Workflow permissions", select Read and write permissions. This setting allows workflows to make changes to the repository, such as committing files.
-Click Save to apply the changes.
+## Contributing
 
-Create Workflow File: In your repository, create a .github/workflows/code-analysis.yml file.
+We welcome contributions from the community. Please follow standard GitHub pull request procedures.
 
-Define Workflow: Add the following content to the code-analysis.yml file:
+## Acknowledgments
 
-Copy the code from .github/workflows/ai-code-review.yml and paste it in code-analysis.yml 
+- Ollama Llama 3.2 for providing the AI model
+- GitHub Actions for continuous integration support
 
-This workflow triggers on pushes and pull requests to the main branch, runs the code analysis script, and uploads the generated report.
+## License
 
-Contributing
-We welcome contributions from the community.
-
-Acknowledgments
-Ollama Llama 3.2 for providing the AI model.
-GitHub Actions for continuous integration support.
+[Add your license information here]
